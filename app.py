@@ -14,7 +14,10 @@ API_KEY = "c16d8edd19f7604faf6b861d8daa3337"
 
 @app.route("/")
 def home():
-    return render_template("index.html")
+    return {
+        "status": "Weather API is running",
+        "usage": "/weather?city=New York"
+    }
 
 
 # ----------------------------
@@ -165,3 +168,4 @@ def get_weather_old():
 # ============================================================
 if __name__ == "__main__":
     app.run(debug=True)
+
