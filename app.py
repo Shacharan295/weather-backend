@@ -2,12 +2,13 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import requests
 from datetime import datetime
-from suggestion_engine import generate_suggestions
+from suggestion_engine import generate_ai_weather_guide   # <-- FIXED
 
 app = Flask(__name__)
 CORS(app)
 
 OPENWEATHER_KEY = "c16d8edd19f7604faf6b861d8daa3337"
+
 
 
 @app.route("/")
@@ -40,21 +41,25 @@ def get_weather():
 
     # Extract current weather
     description = current["weather"][0]["description"].title()
+    category = description.split()[0]  # Rainy, Sunny, Cloudy, etc.
+
     temp = current["main"]["temp"]
     feels_like = current["main"]["feels_like"]
     humidity = current["main"]["humidity"]
     pressure = current["main"]["pressure"]
-    wind_speed = current["wind"]["speed"]
+    wind_speed = current["wind"]["speed"]  # m/s
+
+    wind_speed_kmh = wind_speed * 3.6  # convert to km/h
 
     # Local time formatting
     local_time = datetime.utcfromtimestamp(current["dt"]).strftime("%Y-%m-%d %H:%M")
 
-    # ---------------------------------------------------
-    # 2) FORECAST (3 DAY MIDDAY)
-    # ---------------------------------------------------
     lat = current["coord"]["lat"]
     lon = current["coord"]["lon"]
 
+    # -------------------------------
+    # 2) FORECAST (3 DAYS)
+    # -------------------------------
     forecast_url = (
         f"https://api.openweathermap.org/data/2.5/forecast?"
         f"lat={lat}&lon={lon}&appid={OPENWEATHER_KEY}&units=metric"
@@ -66,10 +71,9 @@ def get_weather():
     days_seen = set()
 
     for entry in forecast_raw["list"]:
-        dt = entry["dt_txt"]  # "2025-12-07 12:00:00"
+        dt = entry["dt_txt"]
         date, time = dt.split(" ")
 
-        # Pick data around midday
         if time == "12:00:00" and date not in days_seen:
             forecast_list.append({
                 "day": date,
@@ -81,18 +85,27 @@ def get_weather():
         if len(forecast_list) >= 3:
             break
 
-    # ---------------------------------------------------
-    # 3) AI SUGGESTIONS
-    # ---------------------------------------------------
-    ai_guide = generate_suggestions(
-        description=description,
+    # -------------------------------
+    # 3) ADVANCED AI SUGGESTION ENGINE
+    # -------------------------------
+    ai_guide = generate_ai_weather_guide(
+        city=current["name"],
+        country=current["sys"]["country"],
         temp=temp,
-        wind_speed=wind_speed
+        feels_like=feels_like,
+        humidity=humidity,
+        pressure=pressure,
+        wind_speed_kmh=wind_speed_kmh,
+        category=category,
+        description=description,
+        hourly=None,       # not used
+        daily=None,        # not used
+        timezone_offset=current["timezone"],
     )
 
-    # ---------------------------------------------------
-    # 4) RESPONSE FORMAT
-    # ---------------------------------------------------
+    # -------------------------------
+    # 4) FINAL RESPONSE
+    # -------------------------------
     result = {
         "city": current["name"],
         "country": current["sys"]["country"],
@@ -102,8 +115,8 @@ def get_weather():
         "description": description,
         "humidity": humidity,
         "pressure": pressure,
-        "wind_speed": wind_speed,
-        "wind_mood": "Windy" if wind_speed > 20 else "Calm",
+        "wind_speed": round(wind_speed_kmh, 2),
+        "wind_mood": "Windy" if wind_speed_kmh > 20 else "Calm",
         "forecast": forecast_list,
         "ai_guide": ai_guide
     }
