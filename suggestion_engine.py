@@ -166,10 +166,7 @@ def generate_ai_weather_guide(
 
     return {
         "summary": summary,
-        "morning": morning_text,
-        "afternoon": afternoon_text,
-        "evening": evening_text,
-        "clothing": clothing_text,
         "activities": activity_text,
         "safety": safety_text,
     }
+
