@@ -10,7 +10,6 @@ CORS(app)
 OPENWEATHER_KEY = "c16d8edd19f7604faf6b861d8daa3337"
 
 
-
 @app.route("/")
 def home():
     return {
@@ -41,7 +40,7 @@ def get_weather():
 
     # Extract current weather
     description = current["weather"][0]["description"].title()
-    category = description.split()[0]  # Rainy, Sunny, Cloudy, etc.
+    category = current["weather"][0]["main"]   # <-- FIXED (was wrong)
 
     temp = current["main"]["temp"]
     feels_like = current["main"]["feels_like"]
@@ -51,8 +50,10 @@ def get_weather():
 
     wind_speed_kmh = wind_speed * 3.6  # convert to km/h
 
-    # Local time formatting
-    local_time = datetime.utcfromtimestamp(current["dt"]).strftime("%Y-%m-%d %H:%M")
+    # Local time using timezone offset (accurate)
+    local_time = datetime.utcfromtimestamp(
+        current["dt"] + current["timezone"]     # <-- FIXED (uses real local time)
+    ).strftime("%Y-%m-%d %H:%M")
 
     lat = current["coord"]["lat"]
     lon = current["coord"]["lon"]
@@ -98,8 +99,8 @@ def get_weather():
         wind_speed_kmh=wind_speed_kmh,
         category=category,
         description=description,
-        hourly=None,       # not used
-        daily=None,        # not used
+        hourly=[],       # <-- FIXED (not None)
+        daily=[],        # <-- FIXED (not None)
         timezone_offset=current["timezone"],
     )
 
