@@ -1,184 +1,176 @@
-# suggestion_engine.py — CITY-AWARE + HIGH VARIATION EDITION
+# suggestion_engine.py
 
 import random
 
-# -----------------------------
-# City Climate Profiles
-# -----------------------------
-CITY_CLIMATE = {
-    "mumbai": "coastal-humid",
-    "chennai": "coastal-hot",
-    "kolkata": "humid-tropical",
-    "delhi": "continental-extreme",
-    "new york": "continental-cold",
-    "london": "cold-rainy",
-    "tokyo": "temperate-mixed",
-    "dubai": "desert-hot",
-    "singapore": "tropical-wet",
-    "sydney": "coastal-mild",
-}
-
-def _climate(city):
-    return CITY_CLIMATE.get(city.lower(), "generic")
-
-
-# -----------------------------
-# Temperature Feel
-# -----------------------------
+# ------------------------------
+# Temperature feel classification
+# ------------------------------
 def _temp_feel(temp, feels_like):
     t = feels_like if feels_like is not None else temp
-    if t is None:
-        return "moderate"
 
-    if t >= 38: return "extremely hot"
-    if t >= 34: return "very hot"
-    if t >= 30: return "hot"
-    if t >= 24: return "warm"
-    if t >= 18: return "mild"
-    if t >= 10: return "cool"
-    if t >= 0:  return "cold"
+    if t >= 38:
+        return "extremely hot"
+    if t >= 32:
+        return "very hot"
+    if t >= 27:
+        return "warm"
+    if t >= 20:
+        return "mild"
+    if t >= 12:
+        return "cool"
+    if t >= 5:
+        return "cold"
     return "freezing"
 
 
-# -----------------------------
-# Clothing Advice with CITY VARIATION
-# -----------------------------
-def _clothing_advice(temp, category, wind_speed, humidity, climate):
-    t = temp if temp is not None else 25
-    cat = (category or "").lower()
+# ------------------------------
+# AI — CAST TODAY (SUMMARY)
+# Highly varied and city-specific
+# ------------------------------
+def build_summary(city, country, desc, temp, feels, humidity, wind):
+    feel_word = _temp_feel(temp, feels)
 
-    coastal_bonus = " Since it's a coastal region, humidity may make clothes feel heavier."
-    desert_bonus = " The dry desert air may feel harsh, so cover exposed skin."
-    cold_country_bonus = " Winters here drop quickly, so warm layers help a lot."
+    templates = [
+        f"In {city}, {country}, the day feels {feel_word} with {desc.lower()} conditions dominating.",
+        f"{city} is experiencing {desc.lower()} weather today, with the atmosphere feeling {feel_word}.",
+        f"Across {city}, the climate leans toward {feel_word} conditions with periods of {desc.lower()}.",
+        f"The weather in {city} feels {feel_word}, paired with {desc.lower()} skies.",
+        f"{city} today shows a mix of {desc.lower()} weather, and temperatures feel {feel_word} for most people.",
+    ]
 
-    base = ""
+    humidity_line = (
+        "Humidity is noticeably high" if humidity > 75
+        else "Humidity levels remain comfortable" if humidity < 50
+        else "Humidity sits at a moderate level"
+    )
 
-    if climate == "coastal-humid" and t >= 28:
-        base = "Stick to very light fabrics; humidity may make the heat feel stronger."
-    elif climate == "desert-hot":
-        base = "Go for loose, full-sleeve cotton to avoid harsh sun exposure."
-    elif climate == "cold-rainy":
-        base = "A warm waterproof jacket is useful because rain can start anytime."
-    elif climate == "continental-cold" and t <= 10:
-        base = "Layer up well, especially during wind gusts typical to this region."
+    wind_line = (
+        "winds are quite strong, adding some chill"
+        if wind > 35
+        else "there is a light breeze throughout the day"
+        if wind > 12
+        else "winds stay calm and gentle"
+    )
 
-    if t >= 35:
-        advice = "Wear ultra-light cotton, sunglasses, and stay shaded."
-    elif t >= 28:
-        advice = "Light cotton and breathable clothes feel best today."
-    elif t >= 22:
-        advice = "Comfortable T-shirt and jeans are fine. A thin waterproof layer if rain pops up."
-    elif t >= 15:
-        advice = "A light jacket will help especially when the wind picks up."
-    elif t >= 5:
-        advice = "Warm sweaters and a light coat are recommended."
-    else:
-        advice = "Use a proper winter jacket, gloves, and warm layers."
-
-    climate_tail = ""
-    if "coastal" in climate: climate_tail = coastal_bonus
-    if "desert" in climate: climate_tail = desert_bonus
-    if "continental-cold" == climate: climate_tail = cold_country_bonus
-
-    return advice + climate_tail
+    return f"{random.choice(templates)}. {humidity_line}, and {wind_line}."
 
 
-# -----------------------------
-# Activity Advice with CITY VARIATION
-# -----------------------------
-def _activity_advice(category, temp, wind_speed, humidity, climate):
-    cat = (category or "").lower()
-    t = temp if temp else 25
-    w = wind_speed or 0
-    h = humidity or 0
-
-    if cat == "stormy":
-        return "Strong winds and rain expected. Stick to indoor activities."
-    if cat == "rainy":
-        return "Short walks are fine with an umbrella; indoor cafés and malls feel nicer."
-    if cat == "snowy":
-        return "Walking in snow is enjoyable if roads are safe. Avoid long outdoor travel."
-
-    climate_bonus = ""
-    if climate == "coastal-humid" and h > 70:
-        climate_bonus = " Coastal humidity may make long outdoor activity feel tiring."
-    elif climate == "desert-hot" and t > 34:
-        climate_bonus = " Desert heat is harsh; limit activity during peak afternoon."
-    elif climate == "cold-rainy" and t < 12:
-        climate_bonus = " Cold rain may appear unexpectedly, so stay near shelter."
-
-    if t >= 36:
-        return "Prefer shaded or indoor plans; heat is intense." + climate_bonus
-    if w >= 35:
-        return "Windy day—pick sheltered spots." + climate_bonus
-    if h >= 80 and t > 28:
-        return "High humidity may reduce comfort, choose lighter activities." + climate_bonus
-
-    return "A good day for normal outdoor plans — walks, small trips, or meeting friends." + climate_bonus
-
-
-# -----------------------------
-# Safety Advice with CITY VARIATION
-# -----------------------------
-def _safety_advice(temp, humidity, wind_speed, category, climate):
+# ------------------------------
+# SAFETY TODAY — dynamic & varied
+# ------------------------------
+def build_safety(temp, humidity, wind, desc):
     tips = []
-    t = temp or 25
-    h = humidity or 0
-    w = wind_speed or 0
-    cat = (category or "").lower()
 
-    if t >= 36:
-        tips.append("Stay hydrated and avoid long exposure to the sun.")
-    if t <= 5:
-        tips.append("Wear strong winter layers to avoid cold stress.")
-    if h >= 80:
-        tips.append("High humidity may cause discomfort; take breaks in cool areas.")
-    if w >= 40:
-        tips.append("Strong winds—avoid open areas and secure loose objects.")
-    if cat in ["rainy", "stormy"]:
-        tips.append("Roads may be slippery. Travel carefully.")
+    # Temperature safety
+    if temp >= 35:
+        tips.append("Limit long outdoor exposure and stay hydrated.")
+    elif temp <= 5:
+        tips.append("Cold conditions may require protective layering.")
 
-    # climate-specific warnings
-    if climate == "desert-hot" and t > 34:
-        tips.append("Dry air may cause dehydration quickly—carry enough water.")
-    if climate.startswith("coastal") and cat == "rainy":
-        tips.append("Coastal areas may experience sudden rain bursts.")
+    # Humidity safety
+    if humidity >= 85:
+        tips.append("High humidity may reduce visibility and cause discomfort.")
+    elif humidity <= 35:
+        tips.append("Dry air may irritate skin or throat.")
+
+    # Wind safety
+    if wind >= 40:
+        tips.append("Strong winds may disrupt outdoor plans; proceed with caution.")
+    elif wind >= 20:
+        tips.append("Moderate winds may affect comfort, especially in open areas.")
+
+    # Description-based safety
+    d = desc.lower()
+    if "rain" in d:
+        tips.append("Roads and surfaces may be slippery; watch your step.")
+    if "storm" in d or "thunder" in d:
+        tips.append("Avoid open spaces due to storm risk.")
+    if "snow" in d:
+        tips.append("Snow may cause reduced traction; move carefully.")
+    if "fog" in d or "mist" in d:
+        tips.append("Fog may reduce visibility—drive or walk carefully.")
 
     if not tips:
-        return "No major safety concerns today."
+        return "No significant safety concerns today for most people."
 
     return " ".join(tips)
 
 
-# -----------------------------
-# Time Blocks (kept simple but can expand)
-# -----------------------------
-def _time_block_text(name, feel_word, category, climate):
-    cat = (category or "").lower()
-    f = feel_word
-    variations = {
-        "morning": [
-            f"Morning starts {f} with {cat} conditions.",
-            f"A {f} morning with a calm start.",
-            f"Morning feels {f}; a good time for a short walk.",
+# ------------------------------
+# CLIMATE INSIGHT — unique & smart
+# ------------------------------
+def build_insight(temp, feels, humidity, wind, desc):
+    feel_word = _temp_feel(temp, feels)
+    d = desc.lower()
+
+    temp_insights = {
+        "extremely hot": [
+            "Heat levels may feel intense during peak hours.",
+            "The warmth may cause quick fatigue outdoors.",
         ],
-        "afternoon": [
-            f"Afternoon turns {f} and you may notice stronger light.",
-            f"A {f} afternoon; plan your main activities now.",
-            f"Afternoon stays {f} with steady weather.",
+        "very hot": [
+            "The day may feel heavier in the sun.",
+            "Shade will feel noticeably more comfortable.",
         ],
-        "evening": [
-            f"Evening becomes slightly cooler and feels {f}.",
-            f"A calm {f} evening—ideal for relaxing outdoors.",
-            f"Evening stays {f} with mild winds.",
+        "warm": [
+            "The warmth provides an inviting outdoor feel.",
+            "Most people find this temperature range pleasant.",
+        ],
+        "mild": [
+            "Mild conditions support comfortable outdoor plans.",
+            "A balanced temperature makes the day feel steady.",
+        ],
+        "cool": [
+            "Cool air may add freshness, especially in the evening.",
+            "You may feel a slight chill in shaded areas.",
+        ],
+        "cold": [
+            "Cold air may impact comfort without layering.",
+            "Winds can enhance the cold sensation.",
+        ],
+        "freezing": [
+            "Freezing air may limit outdoor exposure.",
+            "Extra layers are essential for comfort today.",
         ],
     }
-    return random.choice(variations[name])
+
+    humidity_insights = (
+        "Expect the air to feel heavy due to humidity."
+        if humidity > 80 else
+        "Dryness may make conditions feel sharper."
+        if humidity < 40 else
+        "Humidity remains moderate with no major discomfort expected."
+    )
+
+    wind_insights = (
+        "Winds may feel harsh at times." if wind > 40 else
+        "A steady breeze may be noticeable throughout the day." if wind > 20 else
+        "Winds stay soft and calm today."
+    )
+
+    # pick random temperature insight for higher variation
+    temp_line = random.choice(temp_insights[feel_word])
+
+    # description insight
+    if "rain" in d:
+        desc_line = "Rain may influence mood and outdoor convenience."
+    elif "snow" in d:
+        desc_line = "Snow adds a crisp feel to the environment."
+    elif "storm" in d:
+        desc_line = "Storm conditions may cause sudden atmospheric shifts."
+    elif "fog" in d or "mist" in d:
+        desc_line = "Mist can soften the atmosphere and reduce clarity."
+    elif "cloud" in d:
+        desc_line = "Cloud cover may create a muted daylight tone."
+    else:
+        desc_line = "Clear skies keep the atmosphere simple and bright."
+
+    return f"{temp_line} {humidity_insights} {wind_insights} {desc_line}"
 
 
-# -----------------------------
-# MAIN ENGINE
-# -----------------------------
+# ------------------------------
+#  MAIN ENGINE
+# ------------------------------
 def generate_ai_weather_guide(
     city,
     country,
@@ -193,37 +185,12 @@ def generate_ai_weather_guide(
     daily,
     timezone_offset,
 ):
-    climate = _climate(city)
-    feel_word = _temp_feel(temp, feels_like)
-    cat = category or description or "the weather"
-
-    summary = (
-        f"In {city}, {country}, the weather feels {feel_word} with {cat.lower()} skies. "
-        f"Temperature is around {temp:.1f}°C (feels like {feels_like:.1f}°C), "
-        f"humidity near {humidity}%, and winds around {wind_speed_kmh:.1f} km/h."
-    )
-
-    morning_text = _time_block_text("morning", feel_word, cat, climate)
-    afternoon_text = _time_block_text("afternoon", feel_word, cat, climate)
-    evening_text = _time_block_text("evening", feel_word, cat, climate)
-
-    clothing_text = _clothing_advice(temp, category, wind_speed_kmh, humidity, climate)
-    activity_text = _activity_advice(category, temp, wind_speed_kmh, humidity, climate)
-    safety_text = _safety_advice(temp, humidity, wind_speed_kmh, category, climate)
-
-    insight_text = (
-        f"Overall, {city} experiences {feel_word} conditions today. "
-        f"As a {climate.replace('-', ' ')} region, weather patterns shift slightly, "
-        f"but no unusual trends are expected."
-    )
+    summary = build_summary(city, country, description, temp, feels_like, humidity, wind_speed_kmh)
+    safety = build_safety(temp, humidity, wind_speed_kmh, description)
+    insight = build_insight(temp, feels_like, humidity, wind_speed_kmh, description)
 
     return {
         "summary": summary,
-        "morning": morning_text,
-        "afternoon": afternoon_text,
-        "evening": evening_text,
-        "clothing": clothing_text,
-        "activities": activity_text,
-        "safety": safety_text,
-        "insight": insight_text,
+        "safety": safety,
+        "insight": insight
     }
