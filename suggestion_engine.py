@@ -138,16 +138,16 @@ def _build_summary_text(city, country, temp, feels_like, humidity, wind_speed_km
     wind_part = f" Winds stay {wind_label}, around {wind_speed_kmh:.1f} km/h."
 
     # Climate-friendly extra wording
-    climate_extra_map = {
-        "coastal humid": " Humidity near coastal areas can make the warmth feel stronger.",
-        "tropical wet": " Tropical moisture can make the day feel heavier than the temperature suggests.",
-        "humid tropical": " The humid tropical air adds to the warmth throughout the day.",
-        "desert hot": " Dry desert heat increases the need for shade and regular hydration.",
-        "continental cold": " Colder regions can cool down quickly after sunset.",
-        "cold northern": " Northern cold patterns often bring quick temperature drops during evenings.",
-        "cold rainy": " Cloudy or rainy conditions can make the day feel softer and cooler.",
-        "cool european": " Overcast skies are common and can lower daytime warmth slightly.",
-    }
+ climate_extra_map = {
+    "coastal humid": " Coastal humidity can make the warmth feel stronger than usual.",
+    "tropical wet": " Moist tropical air can add heaviness to the day.",
+    "humid tropical": " The humidity in this region often enhances the warmth.",
+    "desert hot": " Dry desert heat increases the need for shade and regular hydration.",
+    "continental cold": " Cold continental areas often feel sharper during the day.",
+    "cold northern": " Northern air patterns tend to keep daytime temperatures on the cooler side.",
+    "cold rainy": " Cloudy or rainy conditions can soften the daytime temperature.",
+    "cool european": " Cloud-covered European climates often reduce daytime warmth slightly.",
+}
 
     climate_extra = climate_extra_map.get(climate, "")
 
@@ -251,4 +251,5 @@ def generate_ai_weather_guide(
         "safety": safety_text,
         "insight": insight_text,
     }
+
 
