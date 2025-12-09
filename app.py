@@ -19,7 +19,7 @@ def home():
     }
 
 
-# ✅ NEW: LIVE CITY SUGGESTIONS ENDPOINT
+# ✅ LIVE CITY SUGGESTIONS ENDPOINT
 @app.route("/suggest")
 def suggest_city():
     query = request.args.get("query", "").strip()
@@ -48,25 +48,33 @@ def get_weather():
 
     current = requests.get(current_url).json()
 
-    # ⛔ If city is invalid (we can later use fuzzy here too if you want)
+    # ❗ FIX: Ensure JSON structure is valid
+    if not isinstance(current, dict):
+        return jsonify({"error": "upstream_api_failure"}), 500
+
+    # ❗ FIX: On invalid city → send fuzzy suggestions
     if current.get("cod") != 200:
-        return jsonify({"error": "City not found"}), 404
+        suggestions = get_city_suggestions(city)
+        return jsonify({"error": "city_not_found", "suggestions": suggestions}), 404
 
-    # Extract current weather
-    description = current["weather"][0]["description"].title()
-    category = current["weather"][0]["main"]
+    # ❗ FIX: Safe description + category
+    description = (current["weather"][0].get("description") or "").title()
+    category = current["weather"][0].get("main", "")
 
-    temp = current["main"]["temp"]
-    feels_like = current["main"]["feels_like"]
-    humidity = current["main"]["humidity"]
-    pressure = current["main"]["pressure"]
-    wind_speed = current["wind"]["speed"]  # m/s
+    # ❗ FIX: Safe numeric values
+    temp = current["main"].get("temp") or 0
+    feels_like = current["main"].get("feels_like") or temp
+    humidity = current["main"].get("humidity") or 0
+    pressure = current["main"].get("pressure") or 0
 
-    wind_speed_kmh = wind_speed * 3.6  # convert to km/h
+    wind_speed = current["wind"].get("speed") or 0
+    wind_speed_kmh = wind_speed * 3.6
 
-    # Local time using timezone offset
+    # ❗ FIX: Safe timezone offset
+    timezone_offset = current.get("timezone", 0)
+
     local_time = datetime.utcfromtimestamp(
-        current["dt"] + current["timezone"]
+        current["dt"] + timezone_offset
     ).strftime("%Y-%m-%d %H:%M")
 
     lat = current["coord"]["lat"]
@@ -82,23 +90,41 @@ def get_weather():
 
     forecast_raw = requests.get(forecast_url).json()
 
+    # ❗ FIX: Ensure forecast_raw list exists
+    if "list" not in forecast_raw:
+        forecast_raw["list"] = []
+
     forecast_list = []
     days_seen = set()
 
     for entry in forecast_raw["list"]:
-        dt = entry["dt_txt"]
+        dt = entry.get("dt_txt", "")
+
+        if " " not in dt:
+            continue
+
         date, time = dt.split(" ")
 
         if time == "12:00:00" and date not in days_seen:
+
+            # ❗ FIX: Safe forecast description + temp
+            f_desc = (entry["weather"][0].get("description") or "").title()
+            f_temp = entry["main"].get("temp") or 0
+
             forecast_list.append({
                 "day": date,
-                "temp": entry["main"]["temp"],
-                "description": entry["weather"][0]["description"].title()
+                "temp": f_temp,
+                "description": f_desc
             })
+
             days_seen.add(date)
 
         if len(forecast_list) >= 3:
             break
+
+    # ❗ FIX: Ensure forecast list is always returned
+    if not forecast_list:
+        forecast_list = []
 
     # -------------------------------
     # 3) AI SUGGESTION ENGINE
@@ -115,7 +141,7 @@ def get_weather():
         description=description,
         hourly=[],
         daily=[],
-        timezone_offset=current["timezone"],
+        timezone_offset=timezone_offset,
     )
 
     # -------------------------------
