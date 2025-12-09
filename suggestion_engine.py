@@ -73,9 +73,63 @@ def _wind_label(w):
 
 
 # ----------------------------------------
-# SAFETY CONCERN TEXT (Detailed & Useful)
+# MOOD TEXT  (City's mood today…)
 # ----------------------------------------
-def _build_safety_text(temp, humidity, wind_speed_kmh, category, climate):
+def _build_mood_text(city, temp, wind_speed_kmh, humidity, category, climate, aqi):
+    t = temp if temp is not None else 25
+    w = wind_speed_kmh or 0
+    h = humidity or 0
+    cat = (category or "").lower()
+
+    mood_parts = []
+
+    # Temp based tone
+    if t <= 0:
+        mood_parts.append("crisp and cold")
+    elif t <= 18:
+        mood_parts.append("mild and calm")
+    elif t <= 30:
+        mood_parts.append("warm and steady")
+    else:
+        mood_parts.append("hot and intense")
+
+    # Sky based tone
+    if "clear" in cat:
+        mood_parts.append("bright and open")
+    elif "cloud" in cat:
+        mood_parts.append("soft and muted")
+    elif "rain" in cat:
+        mood_parts.append("quiet and reflective")
+    elif "storm" in cat or "thunder" in cat:
+        mood_parts.append("charged and unsettled")
+    elif "snow" in cat:
+        mood_parts.append("soft and quiet")
+
+    # Wind
+    if w >= 25:
+        mood_parts.append("carried by a noticeable breeze")
+
+    # Humidity
+    if h >= 75:
+        mood_parts.append("with a humid undertone")
+
+    # AQI effect (aqi is 0–300 style)
+    if aqi is not None:
+        if aqi >= 200:
+            mood_parts.append("shadowed by poor air today")
+        elif aqi >= 150:
+            mood_parts.append("slightly weighed down by air quality")
+        elif aqi <= 75:
+            mood_parts.append("feeling clean and fresh")
+
+    mood_core = ", ".join(mood_parts) if mood_parts else "balanced and simple"
+    return f"{city}'s mood today feels {mood_core}."
+
+
+# ----------------------------------------
+# SAFETY CONCERN TEXT
+# ----------------------------------------
+def _build_safety_text(temp, humidity, wind_speed_kmh, category, climate, aqi=None):
     tips = []
     t = temp or 25
     h = humidity or 0
@@ -112,6 +166,13 @@ def _build_safety_text(temp, humidity, wind_speed_kmh, category, climate):
     if climate.startswith("coastal") and cat in ["rain", "drizzle", "thunderstorm"]:
         tips.append("Coastal showers can begin suddenly, so plan longer activities with caution.")
 
+    # AQI safety (uses scaled AQI from app.py)
+    if aqi is not None:
+        if aqi >= 200:
+            tips.append("Air quality is very poor today. Limit outdoor activity and consider a good mask if you head out.")
+        elif aqi >= 150:
+            tips.append("Air quality is somewhat unhealthy; sensitive groups should reduce outdoor exposure.")
+
     if not tips:
         return "No major weather-related concerns today, but staying aware of changing conditions is always helpful."
 
@@ -120,7 +181,6 @@ def _build_safety_text(temp, humidity, wind_speed_kmh, category, climate):
 
 # ----------------------------------------
 # SUMMARY TEXT (Cast Today)
-# Clean, warm, daytime-focused — NO NIGHTTIME overlap.
 # ----------------------------------------
 def _build_summary_text(city, country, temp, feels_like, humidity, wind_speed_kmh, category, description, climate):
 
@@ -156,7 +216,7 @@ def _build_summary_text(city, country, temp, feels_like, humidity, wind_speed_km
 
 
 # ----------------------------------------
-# CLIMATE INSIGHT (Short, Smart, Engaging — max 3 sentences)
+# CLIMATE INSIGHT (max 3 sentences)
 # ----------------------------------------
 def _build_insight_text(city, country, temp, feels_like, humidity, pressure, wind_speed_kmh, category, climate):
 
@@ -189,7 +249,7 @@ def _build_insight_text(city, country, temp, feels_like, humidity, pressure, win
     elif p <= 1005:
         pieces.append("Lower pressure hints at changing skies or possible light rain.")
 
-    # Light wind and sky behavior
+    # Wind / sky behavior
     if w >= 35:
         pieces.append("Strong winds can lower how the temperature feels, especially in open spaces.")
     if cat in ["rain", "drizzle"]:
@@ -197,7 +257,7 @@ def _build_insight_text(city, country, temp, feels_like, humidity, pressure, win
     if cat in ["clear", "sunny"]:
         pieces.append("Clear skies allow mid-day sunlight to feel stronger.")
 
-    # Climate style – completely different from the summary
+    # Climate style
     climate_map = {
         "coastal humid": f"{city} often feels heavier in the evenings due to coastal moisture.",
         "desert hot": f"{city} cools down quickly at night despite warm daytime heat.",
@@ -233,11 +293,13 @@ def generate_ai_weather_guide(
     hourly,
     daily,
     timezone_offset,
+    aqi=None,
 ):
     climate = _climate(city, country)
 
     return {
+        "mood": _build_mood_text(city, temp, wind_speed_kmh, humidity, category, climate, aqi),
         "summary": _build_summary_text(city, country, temp, feels_like, humidity, wind_speed_kmh, category, description, climate),
-        "safety": _build_safety_text(temp, humidity, wind_speed_kmh, category, climate),
+        "safety": _build_safety_text(temp, humidity, wind_speed_kmh, category, climate, aqi),
         "insight": _build_insight_text(city, country, temp, feels_like, humidity, pressure, wind_speed_kmh, category, climate),
     }

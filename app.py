@@ -48,20 +48,20 @@ def get_weather():
 
     current = requests.get(current_url).json()
 
-    # ❗ FIX: Ensure JSON structure is valid
+    # ❗ Ensure JSON structure is valid
     if not isinstance(current, dict):
         return jsonify({"error": "upstream_api_failure"}), 500
 
-    # ❗ FIX: On invalid city → send fuzzy suggestions
+    # ❗ On invalid city → send fuzzy suggestions
     if current.get("cod") != 200:
         suggestions = get_city_suggestions(city)
         return jsonify({"error": "city_not_found", "suggestions": suggestions}), 404
 
-    # ❗ FIX: Safe description + category
+    # ❗ Safe description + category
     description = (current["weather"][0].get("description") or "").title()
     category = current["weather"][0].get("main", "")
 
-    # ❗ FIX: Safe numeric values
+    # ❗ Safe numeric values
     temp = current["main"].get("temp") or 0
     feels_like = current["main"].get("feels_like") or temp
     humidity = current["main"].get("humidity") or 0
@@ -70,7 +70,7 @@ def get_weather():
     wind_speed = current["wind"].get("speed") or 0
     wind_speed_kmh = wind_speed * 3.6
 
-    # ❗ FIX: Safe timezone offset
+    # ❗ Safe timezone offset
     timezone_offset = current.get("timezone", 0)
 
     local_time = datetime.utcfromtimestamp(
@@ -90,7 +90,7 @@ def get_weather():
 
     forecast_raw = requests.get(forecast_url).json()
 
-    # ❗ FIX: Ensure forecast_raw list exists
+    # ❗ Ensure forecast_raw list exists
     if "list" not in forecast_raw:
         forecast_raw["list"] = []
 
@@ -107,7 +107,7 @@ def get_weather():
 
         if time == "12:00:00" and date not in days_seen:
 
-            # ❗ FIX: Safe forecast description + temp
+            # ❗ Safe forecast description + temp
             f_desc = (entry["weather"][0].get("description") or "").title()
             f_temp = entry["main"].get("temp") or 0
 
@@ -122,12 +122,48 @@ def get_weather():
         if len(forecast_list) >= 3:
             break
 
-    # ❗ FIX: Ensure forecast list is always returned
+    # ❗ Ensure forecast list is always returned
     if not forecast_list:
         forecast_list = []
 
     # -------------------------------
-    # 3) AI SUGGESTION ENGINE
+    # 3) AIR QUALITY (OpenWeather Air Pollution API)
+    # -------------------------------
+    aqi_value = None          # scaled (0–300 style)
+    aqi_index = None          # raw 1–5 from OpenWeather
+    aqi_label = None
+
+    try:
+        aqi_url = (
+            f"https://api.openweathermap.org/data/2.5/air_pollution?"
+            f"lat={lat}&lon={lon}&appid={OPENWEATHER_KEY}"
+        )
+        aqi_raw = requests.get(aqi_url).json()
+        if isinstance(aqi_raw, dict) and aqi_raw.get("list"):
+            aqi_index = aqi_raw["list"][0]["main"].get("aqi")  # 1–5
+
+            # Map 1–5 → approx AQI scale
+            scale_map = {1: 50, 2: 100, 3: 150, 4: 200, 5: 300}
+            aqi_value = scale_map.get(aqi_index)
+
+            if aqi_value is not None:
+                if aqi_value <= 50:
+                    aqi_label = "Good"
+                elif aqi_value <= 100:
+                    aqi_label = "Moderate"
+                elif aqi_value <= 150:
+                    aqi_label = "Unhealthy for sensitive groups"
+                elif aqi_value <= 200:
+                    aqi_label = "Unhealthy"
+                else:
+                    aqi_label = "Very unhealthy"
+    except Exception:
+        aqi_value = None
+        aqi_index = None
+        aqi_label = None
+
+    # -------------------------------
+    # 4) AI SUGGESTION ENGINE
     # -------------------------------
     ai_guide = generate_ai_weather_guide(
         city=current["name"],
@@ -142,10 +178,11 @@ def get_weather():
         hourly=[],
         daily=[],
         timezone_offset=timezone_offset,
+        aqi=aqi_value,   # ✅ NEW
     )
 
     # -------------------------------
-    # 4) FINAL RESPONSE
+    # 5) FINAL RESPONSE
     # -------------------------------
     result = {
         "city": current["name"],
@@ -158,6 +195,12 @@ def get_weather():
         "pressure": pressure,
         "wind_speed": round(wind_speed_kmh, 2),
         "wind_mood": "Windy" if wind_speed_kmh > 20 else "Calm",
+        "air_quality": {            # ✅ Live AQI block
+            "aqi": aqi_value,
+            "index": aqi_index,
+            "label": aqi_label,
+            "source": "OpenWeather Air Pollution API"
+        },
         "forecast": forecast_list,
         "ai_guide": ai_guide
     }
