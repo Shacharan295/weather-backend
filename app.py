@@ -2,7 +2,8 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import requests
 from datetime import datetime
-from suggestion_engine import generate_ai_weather_guide   # <-- FIXED
+from suggestion_engine import generate_ai_weather_guide
+from city_fuzzy import get_city_suggestions   # ✅ NEW IMPORT
 
 app = Flask(__name__)
 CORS(app)
@@ -16,6 +17,18 @@ def home():
         "status": "Weather API is running",
         "usage": "/weather?city=New York"
     }
+
+
+# ✅ NEW: LIVE CITY SUGGESTIONS ENDPOINT
+@app.route("/suggest")
+def suggest_city():
+    query = request.args.get("query", "").strip()
+
+    if not query:
+        return jsonify([])
+
+    suggestions = get_city_suggestions(query, limit=7)
+    return jsonify(suggestions)
 
 
 @app.route("/weather")
@@ -35,12 +48,13 @@ def get_weather():
 
     current = requests.get(current_url).json()
 
+    # ⛔ If city is invalid (we can later use fuzzy here too if you want)
     if current.get("cod") != 200:
         return jsonify({"error": "City not found"}), 404
 
     # Extract current weather
     description = current["weather"][0]["description"].title()
-    category = current["weather"][0]["main"]   # <-- FIXED (was wrong)
+    category = current["weather"][0]["main"]
 
     temp = current["main"]["temp"]
     feels_like = current["main"]["feels_like"]
@@ -50,9 +64,9 @@ def get_weather():
 
     wind_speed_kmh = wind_speed * 3.6  # convert to km/h
 
-    # Local time using timezone offset (accurate)
+    # Local time using timezone offset
     local_time = datetime.utcfromtimestamp(
-        current["dt"] + current["timezone"]     # <-- FIXED (uses real local time)
+        current["dt"] + current["timezone"]
     ).strftime("%Y-%m-%d %H:%M")
 
     lat = current["coord"]["lat"]
@@ -87,7 +101,7 @@ def get_weather():
             break
 
     # -------------------------------
-    # 3) ADVANCED AI SUGGESTION ENGINE
+    # 3) AI SUGGESTION ENGINE
     # -------------------------------
     ai_guide = generate_ai_weather_guide(
         city=current["name"],
@@ -99,8 +113,8 @@ def get_weather():
         wind_speed_kmh=wind_speed_kmh,
         category=category,
         description=description,
-        hourly=[],       # <-- FIXED (not None)
-        daily=[],        # <-- FIXED (not None)
+        hourly=[],
+        daily=[],
         timezone_offset=current["timezone"],
     )
 
