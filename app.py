@@ -17,19 +17,20 @@ def home():
 
 
 # -------------------------------
-# City Suggestions
+# CITY SUGGESTIONS
 # -------------------------------
 @app.route("/suggest")
 def suggest_city():
     query = request.args.get("query", "").strip()
     if not query:
         return jsonify({"query": "", "suggestions": []})
+
     suggestions = get_city_suggestions(query, limit=5)
     return jsonify({"query": query, "suggestions": suggestions})
 
 
 # -------------------------------
-# Weather Endpoint
+# WEATHER ENDPOINT
 # -------------------------------
 @app.route("/weather")
 def get_weather():
@@ -38,12 +39,13 @@ def get_weather():
     if not city:
         return jsonify({"error": "City is required"}), 400
 
+    # -------------------------------
     # 1) CURRENT WEATHER
+    # -------------------------------
     current_url = (
         f"https://api.openweathermap.org/data/2.5/weather?"
         f"q={city}&appid={OPENWEATHER_KEY}&units=metric"
     )
-
     current = requests.get(current_url).json()
 
     if current.get("cod") != 200:
@@ -52,7 +54,7 @@ def get_weather():
             "suggestions": get_city_suggestions(city)
         })
 
-    description = (current["weather"][0]["description"]).title()
+    description = current["weather"][0]["description"].title()
     category = current["weather"][0]["main"]
 
     temp = current["main"]["temp"]
@@ -60,7 +62,7 @@ def get_weather():
     humidity = current["main"]["humidity"]
     pressure = current["main"]["pressure"]
 
-    wind_speed = current["wind"]["speed"] * 3.6  # km/h
+    wind_speed = current["wind"]["speed"] * 3.6  # convert m/s → km/h
     timezone_offset = current["timezone"]
 
     local_time = datetime.utcfromtimestamp(
@@ -70,67 +72,71 @@ def get_weather():
     lat = current["coord"]["lat"]
     lon = current["coord"]["lon"]
 
-    # 2) FORECAST + HOURLY
+    # -------------------------------
+    # 2) FORECAST FETCH
+    # -------------------------------
     forecast_url = (
         f"https://api.openweathermap.org/data/2.5/forecast?"
         f"lat={lat}&lon={lon}&appid={OPENWEATHER_KEY}&units=metric"
     )
-
     forecast_raw = requests.get(forecast_url).json()
 
-    # ----------------------------
-    # REAL HOURLY (24h) FIXED ORDER
-    # ----------------------------
+    # -------------------------------
+    # ⭐ PERFECT 24-HOUR HOURLY DATA
+    # -------------------------------
     hourly_temps = []
 
+    # First point = current temperature
+    now_time = datetime.utcfromtimestamp(
+        current["dt"] + timezone_offset
+    ).strftime("%H:00")
+
+    hourly_temps.append({
+        "time": now_time,
+        "temp": temp
+    })
+
+    # Add next 7 forecast hours (3-hour intervals)
+    count = 1
     for entry in forecast_raw.get("list", []):
-        dt_full = entry.get("dt_txt")            # e.g., "2025-12-11 03:00:00"
+        if count > 7:
+            break
+
+        dt = entry.get("dt_txt", "")
+        hour_label = dt.split(" ")[1][:5]
         temp_val = entry["main"]["temp"]
 
-        if dt_full:
-            hourly_temps.append({
-                "datetime": dt_full,
-                "time": dt_full.split(" ")[1][:5],  # 03:00
-                "temp": temp_val
-            })
+        hourly_temps.append({
+            "time": hour_label,
+            "temp": temp_val
+        })
 
-    # ⭐ SORT by REAL datetime (THIS FIXES THE ORDER)
-    hourly_temps.sort(
-        key=lambda x: datetime.strptime(x["datetime"], "%Y-%m-%d %H:%M:%S")
-    )
+        count += 1
 
-    # Only first 8 (24 hours)
-    hourly_temps = hourly_temps[:8]
-
-    # Remove datetime field before sending
-    for h in hourly_temps:
-        del h["datetime"]
-
-    # ----------------------------
-    # 3-day forecast
-    # ----------------------------
+    # -------------------------------
+    # 3) 3-DAY FORECAST
+    # -------------------------------
     forecast_list = []
     days_seen = set()
 
-    for entry in forecast_raw["list"]:
+    for entry in forecast_raw.get("list", []):
         dt = entry["dt_txt"]
-
         date, time = dt.split(" ")
 
         if time == "12:00:00" and date not in days_seen:
             forecast_list.append({
                 "day": date,
                 "temp": entry["main"]["temp"],
-                "description": entry["weather"][0]["description"].title(),
+                "description": entry["weather"][0]["description"].title()
             })
             days_seen.add(date)
 
         if len(forecast_list) >= 3:
             break
 
-    # ----------------------------
-    # AIR QUALITY
-    # ----------------------------
+    # -------------------------------
+    # 4) AIR QUALITY
+    # -------------------------------
     aqi_url = (
         f"https://api.openweathermap.org/data/2.5/air_pollution?"
         f"lat={lat}&lon={lon}&appid={OPENWEATHER_KEY}"
@@ -138,15 +144,18 @@ def get_weather():
     aqi_raw = requests.get(aqi_url).json()
 
     aqi_index = aqi_raw.get("list", [{}])[0].get("main", {}).get("aqi", None)
-    aqi_map = {
-        1: "Good", 2: "Fair", 3: "Moderate",
-        4: "Poor", 5: "Very Poor"
+    aqi_label_map = {
+        1: "Good",
+        2: "Fair",
+        3: "Moderate",
+        4: "Poor",
+        5: "Very Poor"
     }
-    aqi_label = aqi_map.get(aqi_index, "Unknown")
+    aqi_label = aqi_label_map.get(aqi_index, "Unknown")
 
-    # ----------------------------
-    # AI Guide
-    # ----------------------------
+    # -------------------------------
+    # 5) AI WEATHER GUIDE
+    # -------------------------------
     ai_guide = generate_ai_weather_guide(
         city=current["name"],
         country=current["sys"]["country"],
@@ -163,6 +172,9 @@ def get_weather():
         aqi=aqi_index,
     )
 
+    # -------------------------------
+    # FINAL RESPONSE
+    # -------------------------------
     return jsonify({
         "city": current["name"],
         "country": current["sys"]["country"],
@@ -177,7 +189,7 @@ def get_weather():
         "air_quality": {"aqi": aqi_index, "label": aqi_label},
         "forecast": forecast_list,
         "hourly": hourly_temps,
-        "ai_guide": ai_guide,
+        "ai_guide": ai_guide
     })
 
 
