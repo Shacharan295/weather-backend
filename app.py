@@ -32,7 +32,6 @@ def suggest_city():
     if not query:
         return jsonify([])
 
-    # use new fuzzy logic from city_fuzzy.py
     suggestions = get_city_suggestions(query, limit=5)
 
     return jsonify({
@@ -42,7 +41,7 @@ def suggest_city():
 
 
 # --------------------------------------------------------
-#  WEATHER ENDPOINT (your logic preserved)
+#  WEATHER ENDPOINT
 # --------------------------------------------------------
 @app.route("/weather")
 def get_weather():
@@ -101,6 +100,27 @@ def get_weather():
     if "list" not in forecast_raw:
         forecast_raw["list"] = []
 
+    # ----------------------------------------------------
+    # ⭐ NEW — REAL 24-HOUR HOURLY DATA (3-hour intervals)
+    # ----------------------------------------------------
+    hourly_temps = []
+
+    for entry in forecast_raw.get("list", []):
+        dt = entry.get("dt_txt")
+        temp_val = entry["main"].get("temp")
+
+        if dt and temp_val is not None:
+            hourly_temps.append({
+                "time": dt.split(" ")[1][:5],  # "09:00"
+                "temp": temp_val
+            })
+
+        if len(hourly_temps) >= 8:  # 8 × 3h = 24h
+            break
+
+    # ----------------------------------------------------
+    # Continue your forecast (unchanged)
+    # ----------------------------------------------------
     forecast_list = []
     days_seen = set()
 
@@ -151,7 +171,7 @@ def get_weather():
     aqi_label = aqi_label_map.get(aqi_index, "Unknown")
 
     # -------------------------------
-    # 4) AI WEATHER GUIDE
+    # 4) AI GUIDE
     # -------------------------------
     ai_guide = generate_ai_weather_guide(
         city=current["name"],
@@ -170,7 +190,7 @@ def get_weather():
     )
 
     # -------------------------------
-    # 5) FINAL RESPONSE
+    # 5) FINAL JSON RESPONSE
     # -------------------------------
     return jsonify({
         "city": current["name"],
@@ -188,6 +208,10 @@ def get_weather():
             "label": aqi_label
         },
         "forecast": forecast_list,
+
+        # ⭐ NEW — REAL HOURLY TEMPS SENT TO FRONTEND
+        "hourly": hourly_temps,
+
         "ai_guide": ai_guide
     })
 
