@@ -3,46 +3,34 @@ from flask_cors import CORS
 import requests
 from datetime import datetime
 from suggestion_engine import generate_ai_weather_guide
-
-# 🔹 NEW fuzzy import
 from city_fuzzy import get_city_suggestions
 
 app = Flask(__name__)
 CORS(app)
 
-# 🔹 Your API key stays untouched
 OPENWEATHER_KEY = "c16d8edd19f7604faf6b861d8daa3337"
 
 
 @app.route("/")
 def home():
-    return {
-        "status": "Weather API is running",
-        "usage": "/weather?city=New York"
-    }
+    return {"status": "Weather API running"}
 
 
-# --------------------------------------------------------
-#  ✅ IMPROVED /suggest ENDPOINT
-# --------------------------------------------------------
+# -------------------------------
+# City Suggestions
+# -------------------------------
 @app.route("/suggest")
 def suggest_city():
     query = request.args.get("query", "").strip()
-
     if not query:
-        return jsonify([])
-
+        return jsonify({"query": "", "suggestions": []})
     suggestions = get_city_suggestions(query, limit=5)
-
-    return jsonify({
-        "query": query,
-        "suggestions": suggestions
-    })
+    return jsonify({"query": query, "suggestions": suggestions})
 
 
-# --------------------------------------------------------
-#  WEATHER ENDPOINT
-# --------------------------------------------------------
+# -------------------------------
+# Weather Endpoint
+# -------------------------------
 @app.route("/weather")
 def get_weather():
     city = request.args.get("city")
@@ -50,9 +38,7 @@ def get_weather():
     if not city:
         return jsonify({"error": "City is required"}), 400
 
-    # -------------------------------
     # 1) CURRENT WEATHER
-    # -------------------------------
     current_url = (
         f"https://api.openweathermap.org/data/2.5/weather?"
         f"q={city}&appid={OPENWEATHER_KEY}&units=metric"
@@ -60,25 +46,22 @@ def get_weather():
 
     current = requests.get(current_url).json()
 
-    if not isinstance(current, dict):
-        return jsonify({"error": "upstream_api_failure"}), 500
-
     if current.get("cod") != 200:
-        suggestions = get_city_suggestions(city)
-        return jsonify({"error": "city_not_found", "suggestions": suggestions}), 404
+        return jsonify({
+            "error": "city_not_found",
+            "suggestions": get_city_suggestions(city)
+        })
 
-    description = (current["weather"][0].get("description") or "").title()
-    category = current["weather"][0].get("main", "")
+    description = (current["weather"][0]["description"]).title()
+    category = current["weather"][0]["main"]
 
-    temp = current["main"].get("temp") or 0
-    feels_like = current["main"].get("feels_like") or temp
-    humidity = current["main"].get("humidity") or 0
-    pressure = current["main"].get("pressure") or 0
+    temp = current["main"]["temp"]
+    feels_like = current["main"]["feels_like"]
+    humidity = current["main"]["humidity"]
+    pressure = current["main"]["pressure"]
 
-    wind_speed = current["wind"].get("speed") or 0
-    wind_speed_kmh = wind_speed * 3.6
-
-    timezone_offset = current.get("timezone", 0)
+    wind_speed = current["wind"]["speed"] * 3.6  # km/h
+    timezone_offset = current["timezone"]
 
     local_time = datetime.utcfromtimestamp(
         current["dt"] + timezone_offset
@@ -87,9 +70,7 @@ def get_weather():
     lat = current["coord"]["lat"]
     lon = current["coord"]["lon"]
 
-    # -------------------------------
-    # 2) FORECAST + REAL HOURLY DATA
-    # -------------------------------
+    # 2) FORECAST + HOURLY
     forecast_url = (
         f"https://api.openweathermap.org/data/2.5/forecast?"
         f"lat={lat}&lon={lon}&appid={OPENWEATHER_KEY}&units=metric"
@@ -97,80 +78,75 @@ def get_weather():
 
     forecast_raw = requests.get(forecast_url).json()
 
-    if "list" not in forecast_raw:
-        forecast_raw["list"] = []
-
-    # ⭐ REAL 24-HOUR HOURLY TEMPS
+    # ----------------------------
+    # REAL HOURLY (24h) FIXED ORDER
+    # ----------------------------
     hourly_temps = []
 
     for entry in forecast_raw.get("list", []):
-        dt = entry.get("dt_txt")
-        temp_val = entry["main"].get("temp")
+        dt_full = entry.get("dt_txt")            # e.g., "2025-12-11 03:00:00"
+        temp_val = entry["main"]["temp"]
 
-        if dt and temp_val is not None:
+        if dt_full:
             hourly_temps.append({
-                "time": dt.split(" ")[1][:5],  # 09:00
+                "datetime": dt_full,
+                "time": dt_full.split(" ")[1][:5],  # 03:00
                 "temp": temp_val
             })
 
-        if len(hourly_temps) >= 8:  # 8 intervals × 3h = 24 hours
-            break
+    # ⭐ SORT by REAL datetime (THIS FIXES THE ORDER)
+    hourly_temps.sort(
+        key=lambda x: datetime.strptime(x["datetime"], "%Y-%m-%d %H:%M:%S")
+    )
 
-    # -------------------------------
-    # 3) THREE-DAY FORECAST
-    # -------------------------------
+    # Only first 8 (24 hours)
+    hourly_temps = hourly_temps[:8]
+
+    # Remove datetime field before sending
+    for h in hourly_temps:
+        del h["datetime"]
+
+    # ----------------------------
+    # 3-day forecast
+    # ----------------------------
     forecast_list = []
     days_seen = set()
 
     for entry in forecast_raw["list"]:
-        dt = entry.get("dt_txt", "")
-
-        if " " not in dt:
-            continue
+        dt = entry["dt_txt"]
 
         date, time = dt.split(" ")
 
         if time == "12:00:00" and date not in days_seen:
-
-            f_desc = (entry["weather"][0].get("description") or "").title()
-            f_temp = entry["main"].get("temp") or 0
-
             forecast_list.append({
                 "day": date,
-                "temp": f_temp,
-                "description": f_desc
+                "temp": entry["main"]["temp"],
+                "description": entry["weather"][0]["description"].title(),
             })
-
             days_seen.add(date)
 
         if len(forecast_list) >= 3:
             break
 
-    # -------------------------------
-    # 4) AIR QUALITY
-    # -------------------------------
+    # ----------------------------
+    # AIR QUALITY
+    # ----------------------------
     aqi_url = (
         f"https://api.openweathermap.org/data/2.5/air_pollution?"
         f"lat={lat}&lon={lon}&appid={OPENWEATHER_KEY}"
     )
-
     aqi_raw = requests.get(aqi_url).json()
 
     aqi_index = aqi_raw.get("list", [{}])[0].get("main", {}).get("aqi", None)
-
-    aqi_label_map = {
-        1: "Good",
-        2: "Fair",
-        3: "Moderate",
-        4: "Poor",
-        5: "Very Poor",
+    aqi_map = {
+        1: "Good", 2: "Fair", 3: "Moderate",
+        4: "Poor", 5: "Very Poor"
     }
+    aqi_label = aqi_map.get(aqi_index, "Unknown")
 
-    aqi_label = aqi_label_map.get(aqi_index, "Unknown")
-
-    # -------------------------------
-    # 5) AI GUIDE (⭐ FIXED HOURLY PASSED)
-    # -------------------------------
+    # ----------------------------
+    # AI Guide
+    # ----------------------------
     ai_guide = generate_ai_weather_guide(
         city=current["name"],
         country=current["sys"]["country"],
@@ -178,21 +154,15 @@ def get_weather():
         feels_like=feels_like,
         humidity=humidity,
         pressure=pressure,
-        wind_speed_kmh=wind_speed_kmh,
+        wind_speed_kmh=wind_speed,
         category=category,
         description=description,
-
-        # ⭐ Fix: send real hourly temps instead of empty list
         hourly=hourly_temps,
-
-        daily=[],
+        daily=forecast_list,
         timezone_offset=timezone_offset,
         aqi=aqi_index,
     )
 
-    # -------------------------------
-    # 6) FINAL RESPONSE
-    # -------------------------------
     return jsonify({
         "city": current["name"],
         "country": current["sys"]["country"],
@@ -202,18 +172,12 @@ def get_weather():
         "description": description,
         "humidity": humidity,
         "pressure": pressure,
-        "wind_speed": round(wind_speed_kmh, 2),
-        "wind_mood": "Windy" if wind_speed_kmh > 20 else "Calm",
-        "air_quality": {
-            "aqi": aqi_index,
-            "label": aqi_label
-        },
+        "wind_speed": round(wind_speed, 1),
+        "wind_mood": "Windy" if wind_speed > 20 else "Calm",
+        "air_quality": {"aqi": aqi_index, "label": aqi_label},
         "forecast": forecast_list,
-
-        # ⭐ Real hourly data sent to frontend
         "hourly": hourly_temps,
-
-        "ai_guide": ai_guide
+        "ai_guide": ai_guide,
     })
 
 
