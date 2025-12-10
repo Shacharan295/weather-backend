@@ -3,11 +3,14 @@ from flask_cors import CORS
 import requests
 from datetime import datetime
 from suggestion_engine import generate_ai_weather_guide
-from city_fuzzy import get_city_suggestions   # ✅ NEW IMPORT
+
+# 🔹 NEW fuzzy import
+from city_fuzzy import get_city_suggestions
 
 app = Flask(__name__)
 CORS(app)
 
+# 🔹 Your API key stays untouched
 OPENWEATHER_KEY = "c16d8edd19f7604faf6b861d8daa3337"
 
 
@@ -19,7 +22,9 @@ def home():
     }
 
 
-# ✅ LIVE CITY SUGGESTIONS ENDPOINT
+# --------------------------------------------------------
+#  ✅ IMPROVED /suggest ENDPOINT
+# --------------------------------------------------------
 @app.route("/suggest")
 def suggest_city():
     query = request.args.get("query", "").strip()
@@ -27,10 +32,18 @@ def suggest_city():
     if not query:
         return jsonify([])
 
-    suggestions = get_city_suggestions(query, limit=7)
-    return jsonify(suggestions)
+    # use new fuzzy logic from city_fuzzy.py
+    suggestions = get_city_suggestions(query, limit=5)
+
+    return jsonify({
+        "query": query,
+        "suggestions": suggestions
+    })
 
 
+# --------------------------------------------------------
+#  WEATHER ENDPOINT (your logic preserved)
+# --------------------------------------------------------
 @app.route("/weather")
 def get_weather():
     city = request.args.get("city")
@@ -115,11 +128,8 @@ def get_weather():
         if len(forecast_list) >= 3:
             break
 
-    if not forecast_list:
-        forecast_list = []
-
     # -------------------------------
-    # ⭐ 3) AIR QUALITY DATA (Only new addition)
+    # 3) AIR QUALITY
     # -------------------------------
     aqi_url = (
         f"https://api.openweathermap.org/data/2.5/air_pollution?"
@@ -141,7 +151,7 @@ def get_weather():
     aqi_label = aqi_label_map.get(aqi_index, "Unknown")
 
     # -------------------------------
-    # 4) AI SUGGESTION ENGINE
+    # 4) AI WEATHER GUIDE
     # -------------------------------
     ai_guide = generate_ai_weather_guide(
         city=current["name"],
@@ -156,13 +166,13 @@ def get_weather():
         hourly=[],
         daily=[],
         timezone_offset=timezone_offset,
-        aqi=aqi_index,     # ⭐ ONLY change here
+        aqi=aqi_index,
     )
 
     # -------------------------------
     # 5) FINAL RESPONSE
     # -------------------------------
-    result = {
+    return jsonify({
         "city": current["name"],
         "country": current["sys"]["country"],
         "local_time": local_time,
@@ -173,18 +183,13 @@ def get_weather():
         "pressure": pressure,
         "wind_speed": round(wind_speed_kmh, 2),
         "wind_mood": "Windy" if wind_speed_kmh > 20 else "Calm",
-
-        # ⭐ NEW: AIR QUALITY INCLUDED
         "air_quality": {
             "aqi": aqi_index,
             "label": aqi_label
         },
-
         "forecast": forecast_list,
         "ai_guide": ai_guide
-    }
-
-    return jsonify(result)
+    })
 
 
 if __name__ == "__main__":
