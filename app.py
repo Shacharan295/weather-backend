@@ -172,9 +172,28 @@ def get_weather():
         aqi=aqi_index,
     )
 
-    # -------------------------------
+    # -------------------------------# -------------------------------
+# FINAL RESPONSE
+# -------------------------------
+
+        # -------------------------------
     # FINAL RESPONSE
     # -------------------------------
+
+    def get_wind_mood(speed):
+        if speed <= 5:
+            return "Calm"
+        elif speed <= 15:
+            return "Light Breeze"
+        elif speed <= 25:
+            return "Breezy"
+        elif speed <= 40:
+            return "Windy"
+        elif speed <= 60:
+            return "Very Windy"
+        else:
+            return "Storm Winds"
+
     return jsonify({
         "city": current["name"],
         "country": current["sys"]["country"],
@@ -185,12 +204,13 @@ def get_weather():
         "humidity": humidity,
         "pressure": pressure,
         "wind_speed": round(wind_speed, 1),
-        "wind_mood": "Windy" if wind_speed > 20 else "Calm",
+        "wind_mood": get_wind_mood(wind_speed),
         "air_quality": {"aqi": aqi_index, "label": aqi_label},
         "forecast": forecast_list,
         "hourly": hourly_temps,
         "ai_guide": ai_guide
     })
+
 
 
 if __name__ == "__main__":
