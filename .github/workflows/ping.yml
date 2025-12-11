@@ -1,0 +1,15 @@
+name: Keep Render Backend Alive
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # Ping every 10 minutes
+  workflow_dispatch:         # Allow manual run
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Render Backend
+        run: |
+          echo "Pinging Render..."
+          curl -s https://weather-backend-e8cz.onrender.com/weather?city=Delhi > /dev/null
