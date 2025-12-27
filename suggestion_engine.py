@@ -86,61 +86,61 @@ def _build_safety_text(temp, humidity, wind_speed_kmh, category, climate, aqi):
     if t >= 40:
         tips.append("Extreme heat dominates the day. Limit outdoor exposure, drink water often, and avoid peak afternoon hours.")
     elif t >= 36:
-        tips.append("Intense heat lingers today. Stay hydrated and reduce long periods under direct sunlight.")
+        tips.append("Strong heat builds through the day. Stay hydrated and reduce long exposure to direct sunlight.")
     elif t <= 0:
-        tips.append("Freezing conditions are present. Wear thermal layers and protect exposed skin to prevent frostbite.")
+        tips.append("Freezing air grips the region. Wear thermal layers and keep exposed skin covered.")
     elif t <= 3:
-        tips.append("The cold may feel biting today. Dress warmly and limit time outdoors, especially as winds increase.")
+        tips.append("Cold conditions feel sharp and biting. Dress warmly and limit outdoor time, especially as winds rise.")
 
     # Humidity
     if h >= 85 and t >= 30:
-        tips.append("High humidity intensifies the heat and increases fatigue. Take regular breaks in cooler areas.")
+        tips.append("High humidity makes the heat more exhausting. Slow down and take cooling breaks.")
     elif h >= 80:
-        tips.append("Moist air may feel heavy and uncomfortable, so staying hydrated is important.")
+        tips.append("Heavy moisture in the air can feel uncomfortable. Drink water regularly.")
 
     # Wind
     if w >= 60:
-        tips.append("Very strong winds are possible. Avoid open spaces and stay alert to sudden gusts.")
+        tips.append("Powerful winds are possible. Avoid open areas and stay alert for sudden gusts.")
     elif w >= 40:
-        tips.append("Strong winds may affect balance and visibility, so remain cautious outdoors.")
+        tips.append("Strong winds may affect balance and visibility. Extra caution is advised outdoors.")
     elif w >= 25:
-        tips.append("Breezy conditions can shift lightweight objects. Secure items on balconies or terraces.")
+        tips.append("Steady breezes can move loose objects. Secure items on balconies or terraces.")
 
     # Rain Storm Snow
     if cat in ["rain", "drizzle"]:
-        tips.append("Wet roads and walkways may become slippery, so move carefully and carry rain protection.")
+        tips.append("Wet roads and paths may become slippery. Walk carefully and keep rain protection ready.")
     if "thunder" in cat or "storm" in cat:
-        tips.append("Storm activity is expected. Staying indoors is the safer choice, away from open areas.")
+        tips.append("Storm activity is expected. Remaining indoors is the safest choice.")
     if "snow" in cat:
-        tips.append("Snow and ice can reduce grip and visibility. Allow extra travel time and walk cautiously.")
+        tips.append("Snow and ice reduce traction and visibility. Allow extra travel time and move cautiously.")
 
     # Climate specific
     if climate == "desert hot" and t >= 32:
-        tips.append("Dry desert heat can cause dehydration quickly, so carry water when stepping outside.")
+        tips.append("Dry desert heat can drain moisture quickly. Carry water when heading outside.")
     if climate.startswith("coastal") and ("rain" in cat or "drizzle" in cat or "thunder" in cat):
-        tips.append("Coastal weather can change suddenly, so plan outdoor activities with care.")
+        tips.append("Coastal weather can change quickly. Plan outdoor activities with flexibility.")
 
     # Air quality
     if aqi is not None:
         if aqi == 5:
-            tips.append("Air quality is very poor. Stay indoors, keep windows closed, and wear a mask if you must go out.")
+            tips.append("Air quality is very poor. Stay indoors, close windows, and use a mask if going out.")
         elif aqi == 4:
-            tips.append("Air quality is poor today. Limit outdoor activity and consider using a mask.")
+            tips.append("Air quality is poor today. Limit outdoor activity and avoid heavy exertion.")
         elif aqi == 3:
             tips.append("Air quality is moderate. Sensitive individuals may feel mild irritation.")
 
     # Combined risks
     if t >= 35 and h >= 75:
-        tips.append("Heat combined with humidity can raise heat stress. Rest often and hydrate well.")
+        tips.append("Heat and humidity together raise fatigue levels. Rest often and hydrate well.")
     if t <= 5 and w >= 25:
-        tips.append("Cold air mixed with wind increases chill. Protect exposed skin.")
+        tips.append("Cold air combined with wind increases chill. Protect exposed skin.")
     if ("thunder" in cat or "storm" in cat) and w >= 40:
-        tips.append("Stormy and windy conditions together can be dangerous. Avoid unnecessary travel.")
+        tips.append("Storms paired with strong winds can be dangerous. Avoid unnecessary travel.")
     if aqi >= 4 and t >= 32:
         tips.append("Poor air quality combined with heat can strain breathing. Reduce outdoor exposure.")
 
     if not tips:
-        return "No major weather related concerns today. Staying aware of changing conditions is still a good idea."
+        return "No major weather related concerns today. Staying alert to changing conditions is still helpful."
 
     return " ".join(tips)
 
@@ -156,24 +156,24 @@ def _build_summary_text(city, country, temp, feels_like, humidity, wind_speed_km
     cat = (category or description or "the weather").lower()
 
     base_templates = [
-        f"In {city}, {country}, the day unfolds with a {feel_word} tone under mostly {cat} skies.",
-        f"{city}, {country} experiences a distinctly {feel_word} day shaped by prevailing {cat} conditions.",
-        f"Today in {city}, a {feel_word} atmosphere sets the mood as {cat} patterns dominate.",
+        f"Today in {city}, {country}, a {feel_word} atmosphere takes over as {cat} conditions shape the day.",
+        f"{city} experiences a {feel_word} day, with {cat} patterns setting the overall tone.",
+        f"In {city}, the weather leans {feel_word} today as {cat} skies dominate the scene.",
     ]
 
     temp_part = f" Around {temp:.1f}°C, it feels closer to {feels_like:.1f}°C."
-    humidity_part = f" The air is {hum_label}, with humidity near {humidity}%."
-    wind_part = f" Winds remain {wind_label}, reaching about {wind_speed_kmh:.1f} km per hour."
+    humidity_part = f" The air feels {hum_label}, with humidity near {humidity}%."
+    wind_part = f" Winds stay {wind_label}, reaching about {wind_speed_kmh:.1f} km per hour."
 
     climate_extra_map = {
-        "coastal humid": " Coastal moisture can make the air feel heavier through the day.",
-        "tropical wet": " Tropical humidity adds a lingering heaviness to the atmosphere.",
-        "humid tropical": " Humid air enhances warmth across the afternoon.",
-        "desert hot": " Dry desert warmth often feels sharp under direct sunlight.",
-        "continental cold": " Continental cold brings a crisp and penetrating daytime chill.",
-        "cold northern": " Northern regions often maintain cooler temperatures throughout the day.",
-        "cold rainy": " Cloudy and rainy skies soften temperatures but deepen the chill.",
-        "cool european": " Frequent cloud cover limits daytime heating.",
+        "coastal humid": " Coastal moisture adds a lingering heaviness to the air.",
+        "tropical wet": " Tropical humidity keeps the atmosphere dense through the day.",
+        "humid tropical": " Warmth is amplified by thick, moisture rich air.",
+        "desert hot": " Dry desert heat feels sharp under open skies.",
+        "continental cold": " Continental cold brings a crisp and penetrating chill.",
+        "cold northern": " Cooler air dominates much of the day.",
+        "cold rainy": " Damp conditions deepen the cold despite moderate temperatures.",
+        "cool european": " Cloud cover steadily limits daytime warmth.",
     }
 
     return random.choice(base_templates) + temp_part + humidity_part + wind_part + climate_extra_map.get(climate, "")
@@ -194,42 +194,42 @@ def _build_insight_text(city, country, temp, feels_like, humidity, pressure, win
     cat = (category or "").lower()
 
     if diff >= 2:
-        pieces.append("The air feels warmer than the thermometer suggests, influenced by local humidity.")
+        pieces.append("The air feels warmer than the thermometer suggests, shaped by local moisture.")
     elif diff <= -2:
-        pieces.append("Temperatures feel cooler than measured due to wind movement or drier air.")
+        pieces.append("Temperatures feel cooler than measured, influenced by wind movement or dry air.")
     else:
-        pieces.append("The perceived temperature closely matches the actual reading today.")
+        pieces.append("The perceived temperature closely matches the actual reading.")
 
     if h >= 80:
-        pieces.append("High humidity gives the air a heavier and slower feel.")
+        pieces.append("High humidity gives the air a dense and heavy feel.")
     elif h <= 30:
-        pieces.append("Dry air sharpens the sensation of temperature.")
+        pieces.append("Dry air sharpens the overall temperature experience.")
 
     if p >= 1020:
-        pieces.append("High pressure supports calmer and more settled weather.")
+        pieces.append("High pressure supports calm and stable conditions.")
     elif p <= 1005:
-        pieces.append("Lower pressure points to shifting skies or unsettled conditions.")
+        pieces.append("Lower pressure hints at shifting skies or unsettled weather.")
 
     if w >= 35:
-        pieces.append("Stronger winds can lower how warm or cold it feels, especially in open areas.")
+        pieces.append("Stronger winds can noticeably alter how warm or cold it feels.")
     if cat in ["rain", "drizzle"]:
-        pieces.append("Passing showers can briefly cool the surroundings.")
+        pieces.append("Passing showers may briefly cool the surroundings.")
     if cat in ["clear", "sunny"]:
         pieces.append("Clear skies allow sunlight to feel more intense during mid day.")
 
     climate_map = {
-        "coastal humid": f"{city} often feels heavier toward evening due to coastal moisture.",
-        "desert hot": f"{city} cools quickly after sunset despite warm daytime heat.",
+        "coastal humid": f"{city} often feels heavier toward evening due to lingering coastal moisture.",
+        "desert hot": f"{city} cools rapidly after sunset despite daytime heat.",
         "tropical wet": f"{city} frequently shifts between sunshine and cloud cover.",
-        "humid tropical": f"{city} moves between warm and humid spells through the day.",
+        "humid tropical": f"{city} moves through warm and humid phases during the day.",
         "tropical asian": f"{city} experiences fast changing weather patterns.",
         "continental cold": f"{city} cools noticeably after sunset, especially on clear evenings.",
         "cold northern": f"{city} often sees colder gusts developing overnight.",
         "cold rainy": f"{city} gradually softens as moisture builds later in the day.",
-        "cool european": f"{city} steadily loses warmth due to persistent cloud cover.",
+        "cool european": f"{city} steadily loses warmth under persistent cloud cover.",
     }
 
-    pieces.append(climate_map.get(climate, f"Conditions today follow a familiar pattern for {city}."))
+    pieces.append(climate_map.get(climate, f"Conditions today follow a familiar pattern for {city}"))
 
     return ". ".join(" ".join(pieces).split(". ")[:3]) + "."
 
