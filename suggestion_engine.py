@@ -231,7 +231,7 @@ def _build_insight_text(city, country, temp, feels_like, humidity, pressure, win
 
     pieces.append(climate_map.get(climate, f"Conditions today follow a familiar pattern for {city}"))
 
-    return ". ".join(" ".join(pieces).split(". ")[:3]) + "."
+    return ". ".join(" ".join(pieces).strip(". ").split(". ")[:3]) + "."
 
 
 # ----------------------------------------
@@ -259,3 +259,4 @@ def generate_ai_weather_guide(
         "safety": _build_safety_text(temp, humidity, wind_speed_kmh, category, climate, aqi),
         "insight": _build_insight_text(city, country, temp, feels_like, humidity, pressure, wind_speed_kmh, category, climate),
     }
+
