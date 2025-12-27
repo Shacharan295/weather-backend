@@ -11,6 +11,11 @@ CORS(app)
 OPENWEATHER_KEY = "c16d8edd19f7604faf6b861d8daa3337"
 
 
+@app.route("/health", methods=["GET", "HEAD"])
+def health():
+    return {"status": "ok"}, 200
+
+
 @app.route("/")
 def home():
     return {"status": "Weather API running"}
@@ -215,3 +220,4 @@ def get_weather():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
